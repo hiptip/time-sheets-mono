@@ -2,6 +2,9 @@ name: deploy to lambda (dev)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - dev
 
 jobs:
   deploy_source:
