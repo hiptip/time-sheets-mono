@@ -28,9 +28,7 @@ jobs:
 
       - name: zip
         working-directory: apps/time-sheets
-        uses: montudor/action-zip@v0.1.0
-        with:
-          args: zip -r -D lambda.zip . -i *
+        run: zip -r -D lambda.zip . -i *
 
       - name: set credentials
         uses: aws-actions/configure-aws-credentials@v3
