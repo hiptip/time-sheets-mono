@@ -1,0 +1,4 @@
+node_modules
+apps/time-sheets/.env
+apps/time-sheets/logs/
+apps/time-sheets/data/

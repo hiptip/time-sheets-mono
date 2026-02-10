@@ -1,0 +1,51 @@
+name: deploy to lambda
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy_source:
+    name: build and deploy lambda
+    strategy:
+      matrix:
+        node-version: [20.x]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+      # - name: npm install and build
+      #   run: |
+      #     npm ci
+      #     npm run build --if-present
+      #   env:
+      #     CI: true
+      - name: install dependencies
+        run: npm install
+        # cd into /pdf and install dependencies
+      - name: install pdf dependencies
+        run: |
+          cd pdf
+          npm install
+      - name: zip
+        uses: montudor/action-zip@v0.1.0
+        with:
+          args:  zip -r -D lambda.zip . -i *
+      - name: set credentials
+        # uses: appleboy/lambda-action@master
+        # with:
+        #   aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        #   aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        #   aws_region: us-east-1
+        #   function_name: process-time-sheets
+        #   zip_file: bundle.zip
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: deploy
+        run: |
+          aws lambda update-function-code --function-name process-time-sheets --zip-file fileb://lambda.zip
