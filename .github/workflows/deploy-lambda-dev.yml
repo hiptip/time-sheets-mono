@@ -23,11 +23,11 @@ jobs:
 
       - name: install dependencies
         working-directory: apps/time-sheets
-        run: npm install
+        run: npm ci --omit=dev --workspaces=false
 
       - name: install pdf dependencies
         working-directory: apps/time-sheets/pdf
-        run: npm install
+        run: npm ci --omit=dev --workspaces=false
 
       - name: zip
         working-directory: apps/time-sheets
