@@ -31,7 +31,7 @@ jobs:
 
       - name: zip
         working-directory: apps/time-sheets
-        run: zip -r -D lambda.zip . -i *
+        run: zip -r -D lambda.zip .
 
       - name: set credentials
         uses: aws-actions/configure-aws-credentials@v3

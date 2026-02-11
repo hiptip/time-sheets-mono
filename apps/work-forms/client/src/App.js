@@ -14,6 +14,21 @@ import TableRow from "@material-ui/core/TableRow";
 import SignatureCanvas from 'react-signature-canvas'
 
 
+const getApiBaseUrl = () =>
+  process.env.REACT_APP_API_BASE_URL ||
+  (process.env.NODE_ENV === 'production'
+    ? 'https://7ctna56fk6.execute-api.us-east-1.amazonaws.com/prod'
+    : '');
+
+const toApiUrl = (path) => {
+  const baseUrl = getApiBaseUrl();
+  if (!path) return baseUrl;
+  if (/^https?:\/\//i.test(path)) return path;
+  if (!baseUrl) return path;
+  if (path.startsWith('/')) return `${baseUrl}${path}`;
+  return `${baseUrl}/${path}`;
+};
+
 
 const LoadingScreen = () => {
   return (
@@ -343,7 +358,7 @@ const AdminApp = () => {
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
   const fetchWithAuth = (url, options = {}) =>
-    fetch(url, {
+    fetch(toApiUrl(url), {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -385,7 +400,7 @@ const AdminApp = () => {
     setLoginError('');
     setLoading(true);
     try {
-      const response = await fetch('/admin/login', {
+      const response = await fetch(toApiUrl('/admin/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
@@ -699,7 +714,7 @@ const FormApp = () => {
         const query = formData.clientCompany
           ? `?company=${encodeURIComponent(formData.clientCompany)}`
           : '';
-        const response = await fetch(`/employees${query}`);
+        const response = await fetch(toApiUrl(`/employees${query}`));
         if (!response.ok) return;
         const data = await response.json();
         if (isMounted) {
@@ -750,13 +765,7 @@ const FormApp = () => {
 
     // send to local api at port 3001
     // fetch('https://7ctna56fk6.execute-api.us-east-1.amazonaws.com/prod/', {
-    const apiBaseUrl =
-      process.env.REACT_APP_API_BASE_URL ||
-      (process.env.NODE_ENV === 'production'
-        ? 'https://7ctna56fk6.execute-api.us-east-1.amazonaws.com/prod'
-        : '');
-
-    fetch(`${apiBaseUrl}/process`, {
+    fetch(toApiUrl('/process'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
