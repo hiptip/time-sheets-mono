@@ -321,9 +321,11 @@ const port = process.env.PORT || 3001;
 
 const handler = serverless(app);
 
-app.listen(port, () => console.log(`API is listening on port ${port}.`));
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  app.listen(port, () => console.log(`API is listening on port ${port}.`));
+}
 
 module.exports.handler = (event, context, callback) => {
-  const response = handler(event, context, callback);
-  return response;
+  context.callbackWaitsForEmptyEventLoop = false;
+  return handler(event, context, callback);
 }
