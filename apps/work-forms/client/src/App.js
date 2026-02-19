@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import './App.css';
 import dayjs from 'dayjs';
 import { TextField, Button, Stack, TextareaAutosize, MenuItem } from '@mui/material';
@@ -355,19 +355,20 @@ const AdminApp = () => {
   const [newRecipient, setNewRecipient] = useState({ email: '', label: '', active: true });
   const [newEmployee, setNewEmployee] = useState({ name: '', company: '', role: '', active: true });
 
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const fetchWithAuth = useCallback(
+    (url, options = {}) =>
+      fetch(toApiUrl(url), {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(options.headers || {})
+        }
+      }),
+    [token]
+  );
 
-  const fetchWithAuth = (url, options = {}) =>
-    fetch(toApiUrl(url), {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-        ...(options.headers || {})
-      }
-    });
-
-  const loadAdminData = async () => {
+  const loadAdminData = useCallback(async () => {
     setLoading(true);
     try {
       const [recipientsRes, employeesRes] = await Promise.all([
@@ -387,13 +388,13 @@ const AdminApp = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchWithAuth]);
 
   useEffect(() => {
     if (token) {
       loadAdminData();
     }
-  }, [token]);
+  }, [token, loadAdminData]);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -926,7 +927,7 @@ const FormApp = () => {
             />
           </Stack>
 
-          {formData.clientCompany != 'Windsor Commercial' && formData.clientCompany != 'MEARS' && (
+          {formData.clientCompany !== 'Windsor Commercial' && formData.clientCompany !== 'MEARS' && (
            <Stack spacing={2} direction="row" sx={{marginBottom: 4}}>
             <TextField
               type="text"
