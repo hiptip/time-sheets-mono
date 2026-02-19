@@ -10,6 +10,10 @@ Public URL:
 
 `https://hiptip.github.io/time-sheets-mono/`
 
+API base URL (do not include `/{proxy+}`):
+
+`https://lmattwotn6.execute-api.us-east-1.amazonaws.com/dev`
+
 ## Available Scripts
 
 In the project directory, you can run:

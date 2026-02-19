@@ -32,6 +32,8 @@ jobs:
         run: npm ci
 
       - name: build work-forms frontend
+        env:
+          REACT_APP_API_BASE_URL: https://lmattwotn6.execute-api.us-east-1.amazonaws.com/dev
         run: npm run build:work-forms
 
       - name: add spa fallback

@@ -14,11 +14,20 @@ import TableRow from "@material-ui/core/TableRow";
 import SignatureCanvas from 'react-signature-canvas'
 
 
-const getApiBaseUrl = () =>
+const normalizeApiBaseUrl = (rawUrl) => {
+  if (!rawUrl) return '';
+  return rawUrl
+    .trim()
+    .replace(/\/(%7Bproxy\+%7D|\{proxy\+\})\/?$/i, '')
+    .replace(/\/+$/, '');
+};
+
+const getApiBaseUrl = () => normalizeApiBaseUrl(
   process.env.REACT_APP_API_BASE_URL ||
   (process.env.NODE_ENV === 'production'
-    ? 'https://7ctna56fk6.execute-api.us-east-1.amazonaws.com/prod'
-    : '');
+    ? 'https://lmattwotn6.execute-api.us-east-1.amazonaws.com/dev'
+    : '')
+);
 
 const toApiUrl = (path) => {
   const baseUrl = getApiBaseUrl();
@@ -765,7 +774,7 @@ const FormApp = () => {
     // }));
 
     // send to local api at port 3001
-    // fetch('https://7ctna56fk6.execute-api.us-east-1.amazonaws.com/prod/', {
+    // fetch('https://lmattwotn6.execute-api.us-east-1.amazonaws.com/dev/', {
     fetch(toApiUrl('/process'), {
       method: 'POST',
       headers: {
