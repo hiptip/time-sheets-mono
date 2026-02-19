@@ -2,6 +2,14 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Deployment
+
+This frontend deploys to GitHub Pages via GitHub Actions on pushes to `dev` (or manual dispatch).
+
+Public URL:
+
+`https://hiptip.github.io/time-sheets-mono/`
+
 ## Available Scripts
 
 In the project directory, you can run:

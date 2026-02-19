@@ -1037,8 +1037,30 @@ const FormApp = () => {
   );
 }
 
+const getPublicUrlPathname = () => {
+  const publicUrl = process.env.PUBLIC_URL || '';
+  if (!publicUrl) return '';
+
+  try {
+    const parsed = new URL(publicUrl, window.location.origin);
+    return parsed.pathname.replace(/\/+$/, '');
+  } catch (error) {
+    return publicUrl
+      .replace(/^https?:\/\/[^/]+/i, '')
+      .replace(/\/+$/, '');
+  }
+};
+
+const isAdminPath = (pathname) => {
+  const basePath = getPublicUrlPathname();
+  const appRelativePath = basePath && pathname.startsWith(basePath)
+    ? pathname.slice(basePath.length) || '/'
+    : pathname;
+  return appRelativePath === '/admin' || appRelativePath.startsWith('/admin/');
+};
+
 const App = () => {
-  const isAdminRoute = window.location.pathname.startsWith('/admin');
+  const isAdminRoute = isAdminPath(window.location.pathname);
   return isAdminRoute ? <AdminApp /> : <FormApp />;
 }
 
