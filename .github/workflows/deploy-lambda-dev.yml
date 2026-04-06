@@ -2,6 +2,9 @@ name: deploy to lambda (dev)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - dev
 
 jobs:
   deploy_source:
@@ -20,15 +23,15 @@ jobs:
 
       - name: install dependencies
         working-directory: apps/time-sheets
-        run: npm install
+        run: npm install --omit=dev --workspaces=false
 
       - name: install pdf dependencies
         working-directory: apps/time-sheets/pdf
-        run: npm install
+        run: npm install --omit=dev --workspaces=false
 
       - name: zip
         working-directory: apps/time-sheets
-        run: zip -r -D lambda.zip . -i *
+        run: zip -r -D lambda.zip .
 
       - name: set credentials
         uses: aws-actions/configure-aws-credentials@v3

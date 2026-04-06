@@ -9,6 +9,7 @@ const app = express();
 const { generatePDF } = require('./pdf/generatePDF');
 const { sendPDF } = require('./sendEmail');
 const fs = require('fs');
+const fsp = fs.promises;
 const { uploadFileToS3 } = require('./uploadFileToS3');
 const crypto = require('crypto');
 const {
@@ -265,116 +266,66 @@ app.get('/employees', async (req, res) => {
 
 // add app.post
 app.post('/process', async (req, res) => {
-  console.log(req.headers);
-  console.log(req.body);
-
-
-  // Save req.body.clientSignature to a file called clientSignature.png
-  const base64clientSignature = req.body.clientSignature.replace(/^data:image\/png;base64,/, "");
-
-  fs.writeFile('tmp/clientSignature.png', base64clientSignature, 'base64', (err) => {
-    if (err) throw err;
-    console.log('clientSignature saved to clientSignature.png');
-  });
-
-  const base64supervisorSignature = req.body.supervisorSignature.replace(/^data:image\/png;base64,/, "");
-  // Save req.body.supervisorSignature to a file called supervisorSignature.png
-  fs.writeFile('tmp/supervisorSignature.png', base64supervisorSignature, 'base64', (err) => {
-    if (err) throw err;
-    console.log('supervisorSignature saved to supervisorSignature.png');
-  });
-
-  const clientSignatureKey = `clientSignature-${Date.now()}.png`;
-  const supervisorSignatureKey = `supervisorSignature-${Date.now()}.png`;
-
-  // Upload clientSignature.png to S3 bucket
-  // try {
-  //   const clientSignatureUrl = uploadFileToS3('tmp/clientSignature.png', clientSignatureKey, 'site-signatures');
-  //   console.log('clientSignature.png uploaded to S3 bucket');
-  //   console.log('clientSignatureUrl', clientSignatureUrl);
-  //   req.body.clientSignature = clientSignatureUrl;
-  // } catch (err) {
-  //   console.log('Error uploading clientSignature.png to S3 bucket', err);
-  // }
-
-
-  await uploadFileToS3('tmp/clientSignature.png', clientSignatureKey, 'site-signatures')
-    .then((clientSignatureUrl) => {
-      console.log('clientSignature.png uploaded to S3 bucket');
-      console.log('clientSignatureUrl', clientSignatureUrl);
-      const imgTag = `<img src="${clientSignatureUrl}" />`;
-      req.body.clientSignature = imgTag;
+  try {
+    const payload = req.body || {};
+    if (!payload.clientSignature || !payload.supervisorSignature) {
+      return res.status(400).json({ error: 'Missing signatures' });
     }
-    )
-    .catch(err => {
-      console.log('Error uploading clientSignature.png to S3 bucket', err);
-    }
+
+    const clientSignatureKey = `clientSignature-${Date.now()}.png`;
+    const supervisorSignatureKey = `supervisorSignature-${Date.now()}.png`;
+    const clientSignaturePath = `/tmp/${clientSignatureKey}`;
+    const supervisorSignaturePath = `/tmp/${supervisorSignatureKey}`;
+
+    const base64clientSignature = payload.clientSignature.replace(/^data:image\/png;base64,/, '');
+    const base64supervisorSignature = payload.supervisorSignature.replace(/^data:image\/png;base64,/, '');
+
+    await fsp.writeFile(clientSignaturePath, base64clientSignature, 'base64');
+    await fsp.writeFile(supervisorSignaturePath, base64supervisorSignature, 'base64');
+
+    const clientSignatureUrl = await uploadFileToS3(clientSignaturePath, clientSignatureKey, 'site-signatures');
+    const supervisorSignatureUrl = await uploadFileToS3(
+      supervisorSignaturePath,
+      supervisorSignatureKey,
+      'site-signatures'
     );
 
-  // try {
-  //   const supervisorSignatureUrl = uploadFileToS3('tmp/supervisorSignature.png', supervisorSignatureKey, 'site-signatures');
-  //   console.log('supervisorSignature.png uploaded to S3 bucket');
-  //   req.body.supervisorSignature = supervisorSignatureUrl;
-  // } catch (err) {
-  //   console.log('Error uploading supervisorSignature.png to S3 bucket', err);
-  // }
+    payload.clientSignature = `<img src="${clientSignatureUrl}" />`;
+    payload.supervisorSignature = `<img src="${supervisorSignatureUrl}" />`;
 
-  await uploadFileToS3('tmp/supervisorSignature.png', supervisorSignatureKey, 'site-signatures')
-    .then((supervisorSignatureUrl) => {
-      console.log('supervisorSignature.png uploaded to S3 bucket');
-      const imgTag = `<img src="${supervisorSignatureUrl}" />`;
-      req.body.supervisorSignature = imgTag;
+    const clientCompany = payload.clientCompany ? payload.clientCompany : 'S.E.C.';
+    let template;
+    if (clientCompany === 'MEARS') {
+      template = 'receiptTemplateMEARS.docx';
+    } else if (clientCompany === 'Windsor Commercial' || clientCompany === 'Smith & Jennings') {
+      template = 'receiptTemplateNoJob.docx';
+    } else {
+      template = 'receiptTemplate.docx';
     }
-    )
-    .catch(err => {
-      console.log('Error uploading supervisorSignature.png to S3 bucket', err);
-    }
-    );
 
-  console.log('req.body', req.body)
+    const receiptPath = `/tmp/receipt-${Date.now()}.json`;
+    await fsp.writeFile(receiptPath, JSON.stringify(payload));
+    await generatePDF(receiptPath, template);
 
+    const teamLead = payload.teamLead;
+    await sendPDF(teamLead);
 
-  const clientCompany = req.body.clientCompany ? req.body.clientCompany : 'S.E.C.';
-  let template;
-  if (clientCompany === 'MEARS') {
-    template = 'receiptTemplateMEARS.docx';
-  } else if (clientCompany === 'Windsor Commercial' || clientCompany === 'Smith & Jennings') {
-    template = 'receiptTemplateNoJob.docx';
-  } else {
-    template = 'receiptTemplate.docx';
+    return res.json({ ok: true });
+  } catch (error) {
+    console.log('Error processing request', error);
+    return res.status(500).json({ error: 'Failed to process request' });
   }
-
-  const receiptPath = `/tmp/receipt-${Date.now()}.json`;
-
-  // Save req.body to a file called receipt.json
-  fs.writeFile(receiptPath, JSON.stringify(req.body), (err) => {
-    if (err) throw err;
-    console.log('Receipt saved to receipt.json');
-    generatePDF(receiptPath, template)
-      .then(() => {
-        console.log('PDF generated');
-        // await Send the PDF
-        const teamLead = req.body.teamLead;
-        sendPDF(teamLead);
-      })
-      .catch(err => {
-        console.log('Error generating PDF', err);
-      });
-  });
-
-  // await Generate the PDF
-
-  // Email the PDF
-  res.send('Got a POST request');
 });
 
 const port = process.env.PORT || 3001;
 
 const handler = serverless(app);
 
-app.listen(port, () => console.log(`API is listening on port ${port}.`));
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  app.listen(port, () => console.log(`API is listening on port ${port}.`));
+}
 
 module.exports.handler = (event, context, callback) => {
-  const response = handler(event, context, callback);
-  return response;
+  context.callbackWaitsForEmptyEventLoop = false;
+  return handler(event, context, callback);
 }

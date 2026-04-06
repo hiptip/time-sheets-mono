@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import './App.css';
 import dayjs from 'dayjs';
 import { TextField, Button, Stack, TextareaAutosize, MenuItem } from '@mui/material';
@@ -13,6 +13,30 @@ import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import SignatureCanvas from 'react-signature-canvas'
 
+
+const normalizeApiBaseUrl = (rawUrl) => {
+  if (!rawUrl) return '';
+  return rawUrl
+    .trim()
+    .replace(/\/(%7Bproxy\+%7D|\{proxy\+\})\/?$/i, '')
+    .replace(/\/+$/, '');
+};
+
+const getApiBaseUrl = () => normalizeApiBaseUrl(
+  process.env.REACT_APP_API_BASE_URL ||
+  (process.env.NODE_ENV === 'production'
+    ? 'https://lmattwotn6.execute-api.us-east-1.amazonaws.com/dev'
+    : '')
+);
+
+const toApiUrl = (path) => {
+  const baseUrl = getApiBaseUrl();
+  if (!path) return baseUrl;
+  if (/^https?:\/\//i.test(path)) return path;
+  if (!baseUrl) return path;
+  if (path.startsWith('/')) return `${baseUrl}${path}`;
+  return `${baseUrl}/${path}`;
+};
 
 
 const LoadingScreen = () => {
@@ -340,19 +364,20 @@ const AdminApp = () => {
   const [newRecipient, setNewRecipient] = useState({ email: '', label: '', active: true });
   const [newEmployee, setNewEmployee] = useState({ name: '', company: '', role: '', active: true });
 
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const fetchWithAuth = useCallback(
+    (url, options = {}) =>
+      fetch(toApiUrl(url), {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(options.headers || {})
+        }
+      }),
+    [token]
+  );
 
-  const fetchWithAuth = (url, options = {}) =>
-    fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-        ...(options.headers || {})
-      }
-    });
-
-  const loadAdminData = async () => {
+  const loadAdminData = useCallback(async () => {
     setLoading(true);
     try {
       const [recipientsRes, employeesRes] = await Promise.all([
@@ -372,20 +397,20 @@ const AdminApp = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchWithAuth]);
 
   useEffect(() => {
     if (token) {
       loadAdminData();
     }
-  }, [token]);
+  }, [token, loadAdminData]);
 
   const handleLogin = async (event) => {
     event.preventDefault();
     setLoginError('');
     setLoading(true);
     try {
-      const response = await fetch('/admin/login', {
+      const response = await fetch(toApiUrl('/admin/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
@@ -699,7 +724,7 @@ const FormApp = () => {
         const query = formData.clientCompany
           ? `?company=${encodeURIComponent(formData.clientCompany)}`
           : '';
-        const response = await fetch(`/employees${query}`);
+        const response = await fetch(toApiUrl(`/employees${query}`));
         if (!response.ok) return;
         const data = await response.json();
         if (isMounted) {
@@ -749,14 +774,8 @@ const FormApp = () => {
     // }));
 
     // send to local api at port 3001
-    // fetch('https://7ctna56fk6.execute-api.us-east-1.amazonaws.com/prod/', {
-    const apiBaseUrl =
-      process.env.REACT_APP_API_BASE_URL ||
-      (process.env.NODE_ENV === 'production'
-        ? 'https://7ctna56fk6.execute-api.us-east-1.amazonaws.com/prod'
-        : '');
-
-    fetch(`${apiBaseUrl}/process`, {
+    // fetch('https://lmattwotn6.execute-api.us-east-1.amazonaws.com/dev/', {
+    fetch(toApiUrl('/process'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -917,7 +936,7 @@ const FormApp = () => {
             />
           </Stack>
 
-          {formData.clientCompany != 'Windsor Commercial' && formData.clientCompany != 'MEARS' && (
+          {formData.clientCompany !== 'Windsor Commercial' && formData.clientCompany !== 'MEARS' && (
            <Stack spacing={2} direction="row" sx={{marginBottom: 4}}>
             <TextField
               type="text"
@@ -1028,8 +1047,30 @@ const FormApp = () => {
   );
 }
 
+const getPublicUrlPathname = () => {
+  const publicUrl = process.env.PUBLIC_URL || '';
+  if (!publicUrl) return '';
+
+  try {
+    const parsed = new URL(publicUrl, window.location.origin);
+    return parsed.pathname.replace(/\/+$/, '');
+  } catch (error) {
+    return publicUrl
+      .replace(/^https?:\/\/[^/]+/i, '')
+      .replace(/\/+$/, '');
+  }
+};
+
+const isAdminPath = (pathname) => {
+  const basePath = getPublicUrlPathname();
+  const appRelativePath = basePath && pathname.startsWith(basePath)
+    ? pathname.slice(basePath.length) || '/'
+    : pathname;
+  return appRelativePath === '/admin' || appRelativePath.startsWith('/admin/');
+};
+
 const App = () => {
-  const isAdminRoute = window.location.pathname.startsWith('/admin');
+  const isAdminRoute = isAdminPath(window.location.pathname);
   return isAdminRoute ? <AdminApp /> : <FormApp />;
 }
 

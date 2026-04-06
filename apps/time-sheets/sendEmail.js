@@ -20,7 +20,7 @@ const sendPDF = async (subject, recipientsOverride = []) => {
       service: 'gmail',
       auth: {
         user: 'northcarolinaroadbusiness',
-        pass: 'gfyb wfor ymzk jbhb',
+        pass: 'ztwt saws cjxg tkoi',
       }
     });
 
